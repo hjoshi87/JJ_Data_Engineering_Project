@@ -16,7 +16,6 @@ FROM maintenance_events
 WHERE cost_eur IS NOT NULL 
   AND cost_eur >= 0;
 
--- Expected Result: ~€190,000 total across 96 events
 
 -- ============================================================================
 
@@ -34,7 +33,6 @@ SELECT
 FROM maintenance_events
 WHERE downtime_min IS NOT NULL;
 
--- Expected Result: ~4,200 minutes (~70 hours)
 
 -- ============================================================================
 
@@ -49,7 +47,6 @@ SELECT
     COUNT(DISTINCT maintenance_type) AS maintenance_type_count
 FROM maintenance_events;
 
--- Expected Result: 96 total events, 3 lines, 5 maintenance types
 
 -- ============================================================================
 
@@ -67,7 +64,6 @@ SELECT
 FROM maintenance_events
 WHERE reason = 'Unplanned Breakdown';
 
--- Expected Result: ~26 breakdowns (27% of total)
 
 -- ============================================================================
 
@@ -86,4 +82,3 @@ SELECT
 FROM maintenance_events
 WHERE downtime_min IS NOT NULL;
 
--- Expected Result: ~45 minutes average downtime

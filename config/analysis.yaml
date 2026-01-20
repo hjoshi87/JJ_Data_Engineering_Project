@@ -1,0 +1,27 @@
+# Analysis Parameters
+analysis:
+  name: Manufacturing Maintenance Analysis
+  
+# Query Settings
+queries:
+  query_timeout: 300  # seconds
+  result_limit: 10000
+  
+# Metrics to Calculate
+metrics:
+  cost_analysis: true
+  downtime_analysis: true
+  breakdown_analysis: true
+  efficiency_analysis: true
+  
+# Thresholds for Alerts
+thresholds:
+  high_cost_event: 5000  # EUR
+  high_downtime_event: 240  # minutes
+  breakdown_percentage_alert: 30  # %
+  
+# Output Format
+output:
+  format: csv
+  include_timestamps: true
+  precision: 2

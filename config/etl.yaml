@@ -1,0 +1,35 @@
+# ETL Pipeline Settings
+pipeline:
+  name: Manufacturing ETL
+  version: 1.0
+  
+# Spark Configuration
+spark:
+  app_name: manufacturing-etl
+  master: local[4]
+  executor_memory: 1g
+  driver_memory: 2g
+  
+# Input/Output Paths
+paths:
+  input: ./data/raw
+  output: ./data/processed
+  logs: ./logs
+  
+# Processing Settings
+processing:
+  batch_size: 1000
+  partition_count: 4
+  coalesce_output: true
+  
+# Validation Rules
+validation:
+  maintenance:
+    expected_rows: 90-100
+    required_columns: [event_id, factory_id, maintenance_type]
+  
+# Error Handling
+error_handling:
+  retry_count: 3
+  retry_delay: 60  # seconds
+  fail_on_error: true

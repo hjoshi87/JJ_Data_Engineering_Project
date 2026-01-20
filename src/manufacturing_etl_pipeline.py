@@ -21,12 +21,13 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import (
     col, when, sum as spark_sum, avg, count, max as spark_max, min as spark_min,
     to_timestamp, to_utc_timestamp, coalesce, split, trim, upper,
-    dense_rank, row_number, datediff, date_format, lit
+    dense_rank, row_number, datediff, date_format, lit, concat, size, regexp_extract, length,
+    to_json
 )
 from pyspark.sql.window import Window
 from pyspark.sql.types import (
     StructType, StructField, StringType, IntegerType, 
-    DecimalType, DateType, TimestampType
+    DecimalType, DateType, TimestampType, ArrayType, MapType
 )
 
 
@@ -64,11 +65,11 @@ logger = setup_logging()
 
 def create_spark_session(app_name: str = "ManufacturingETL") -> SparkSession:
     """
-    Initialize Spark session with appropriate configurations for this workload.
+    Initialize Spark session with Windows-friendly configuration.
     
     Configurations:
-    - Memory: 4GB driver, 2GB per executor (adjust for cluster size)
-    - Partitions: Auto-determined by Spark (typically 200)
+    - Memory: 2GB driver, 1GB per executor (adjust for cluster size)
+    - Partitions: Auto-determined by Spark  
     - Shuffle: Balanced for moderate data volumes
     
     Args:
@@ -77,18 +78,32 @@ def create_spark_session(app_name: str = "ManufacturingETL") -> SparkSession:
     Returns:
         Initialized SparkSession
     """
-    spark = SparkSession.builder \
-        .appName(app_name) \
-        .config("spark.driver.memory", "4g") \
-        .config("spark.executor.memory", "2g") \
-        .config("spark.sql.shuffle.partitions", "200") \
-        .config("spark.sql.adaptive.enabled", "true") \
-        .getOrCreate()
+    import os
     
-    logger.info(f"Spark session created: {app_name}")
-    logger.info(f"Spark version: {spark.version}")
+    # Ensure JAVA_HOME is set
+    if 'JAVA_HOME' not in os.environ:
+        logger.warning("JAVA_HOME not set. Spark may fail.")
     
-    return spark
+    try:
+        spark = SparkSession.builder \
+            .appName(app_name) \
+            .config("spark.driver.memory", "2g") \
+            .config("spark.executor.memory", "1g") \
+            .config("spark.sql.shuffle.partitions", "4") \
+            .config("spark.sql.adaptive.enabled", "true") \
+            .config("spark.driver.host", "127.0.0.1") \
+            .config("spark.sql.repl.local.exec.bind", "true") \
+            .master("local[*]") \
+            .getOrCreate()
+        
+        logger.info(f"Spark session created: {app_name}")
+        logger.info(f"Spark version: {spark.version}")
+        
+        return spark
+    
+    except Exception as e:
+        logger.error(f"Failed to create Spark session: {str(e)}")
+        raise
 
 
 # ============================================================================
@@ -117,9 +132,15 @@ def read_csv_with_validation(
         ValueError: If row count validation fails or file not found
     """
     try:
-        df = spark.read.option("header", "true").option(
-            "inferSchema", "true" if schema is None else "false"
-        ).schema(schema).csv(file_path)
+        # Build reader with proper schema handling
+        reader = spark.read.option("header", "true")
+        
+        if schema is not None:
+            reader = reader.schema(schema)
+        else:
+            reader = reader.option("inferSchema", "true")
+        
+        df = reader.csv(file_path)
         
         row_count = df.count()
         logger.info(f"Read {file_path}: {row_count} rows, {len(df.columns)} columns")
@@ -132,7 +153,7 @@ def read_csv_with_validation(
                     f"Row count {row_count} outside expected range "
                     f"[{min_count}, {max_count}]"
                 )
-            logger.info(f"✓ Row count validation passed")
+            logger.info(f"[OK] Row count validation passed")
         
         return df
     
@@ -175,7 +196,7 @@ def validate_maintenance_data(df: DataFrame) -> Dict[str, any]:
         )
         validation_report['passed'] = False
     else:
-        logger.info("✓ No duplicate event IDs detected")
+        logger.info("[OK] No duplicate event IDs detected")
     
     # Check 2: Timestamp consistency
     timestamp_invalid = df.filter(
@@ -187,7 +208,7 @@ def validate_maintenance_data(df: DataFrame) -> Dict[str, any]:
         )
         validation_report['passed'] = False
     else:
-        logger.info("✓ Timestamp consistency validated")
+        logger.info("[OK] Timestamp consistency validated")
     
     # Check 3: Negative values
     negative_cost = df.filter(col('cost_eur') < 0).count()
@@ -203,7 +224,7 @@ def validate_maintenance_data(df: DataFrame) -> Dict[str, any]:
         )
     
     if negative_cost == 0 and negative_downtime == 0:
-        logger.info("✓ No negative values detected")
+        logger.info("[OK] No negative values detected")
     
     # Check 4: Critical column nulls
     null_counts = {
@@ -218,7 +239,7 @@ def validate_maintenance_data(df: DataFrame) -> Dict[str, any]:
         )
         validation_report['passed'] = False
     else:
-        logger.info("✓ No nulls in critical columns")
+        logger.info("[OK] No nulls in critical columns")
     
     # Log summary
     logger.info(f"Maintenance validation: {validation_report['passed']}")
@@ -250,7 +271,7 @@ def validate_factory_data(df: DataFrame) -> Dict[str, any]:
             validation_report['passed'] = False
     
     if validation_report['passed']:
-        logger.info("✓ OEE components within valid range")
+        logger.info("[OK] OEE components within valid range")
     
     # Check produced <= planned
     qty_invalid = df.filter(col('produced_qty') > col('planned_qty')).count()
@@ -332,7 +353,7 @@ def clean_maintenance_events(df: DataFrame) -> DataFrame:
         )
     )
     
-    logger.info("✓ Timestamps converted to UTC")
+    logger.info("[OK] Timestamps converted to UTC")
     
     # Transformation 2: Parse parts_used (comma-separated to array)
     df_clean = df_clean.withColumn(
@@ -346,44 +367,11 @@ def clean_maintenance_events(df: DataFrame) -> DataFrame:
     ).withColumn(
         'parts_count',
         when(col('parts_list').isNull(), 0).otherwise(
-            spark.sql("SELECT size(parts_list)").collect()
+            size(col('parts_list'))
         )
     )
     
-    # Simpler approach for parts_count
-    df_clean = df_clean.withColumn(
-        'parts_count',
-        when(
-            (col('parts_used').isNull()) | (col('parts_used') == ''),
-            0
-        ).otherwise(
-            # Count commas + 1 for comma-separated values
-            (len(col('parts_used')) - len(col('parts_used').cast('string')
-                                            .substr(1, 0))) + 1
-        )
-    )
-    
-    # Alternative: Use regex to count parts
-    from pyspark.sql.functions import regexp_extract
-    df_clean = df_clean.withColumn(
-        'parts_count',
-        when(col('parts_used').isNull(), 0).otherwise(1 + 
-            len(col('parts_used')) - len(col('parts_used').cast('string')
-                                          .substr(1, 0)))
-    )
-    
-    # Simplest approach using size of split
-    df_clean = df_clean.withColumn(
-        'parts_count',
-        when(
-            (col('parts_used').isNull()) | (col('parts_used') == ''),
-            0
-        ).otherwise(
-            len(split(col('parts_used'), ','))
-        )
-    )
-    
-    logger.info("✓ Parts parsed and counted")
+    logger.info("[OK] Parts parsed and counted")
     
     # Transformation 3: Classify maintenance events
     df_clean = df_clean.withColumn(
@@ -391,28 +379,31 @@ def clean_maintenance_events(df: DataFrame) -> DataFrame:
         col('reason') == 'Unplanned Breakdown'
     ).withColumn(
         'downtime_category',
-        when(col('downtime_min') == 0, 'monitoring').otherwise('downtime')
+        when(col('downtime_min') == 0, lit('monitoring')).otherwise(lit('downtime'))
     )
     
-    logger.info("✓ Maintenance events classified")
+    logger.info("[OK] Maintenance events classified")
     
     # Transformation 4: Flag data quality issues
     df_clean = df_clean.withColumn(
         'data_quality_flags',
-        when(col('cost_eur').isNull(), 'missing_cost').otherwise('')
+        when(col('cost_eur').isNull(), lit('missing_cost')).otherwise(lit(''))
     ).withColumn(
         'data_quality_flags',
         when(
             col('parts_used').isNull() | (col('parts_used') == ''),
-            concat(col('data_quality_flags'), 'missing_parts')
+            concat(col('data_quality_flags'), lit('missing_parts'))
         ).otherwise(col('data_quality_flags'))
     )
     
-    logger.info("✓ Data quality flags added")
+    logger.info("[OK] Data quality flags added")
     
-    # Transformation 5: Trim whitespace
-    for col_name in df_clean.select(StringType).columns:
+    # Transformation 5: Trim whitespace from string columns
+    string_cols = [field.name for field in df_clean.schema.fields if str(field.dataType) == 'StringType']
+    for col_name in string_cols:
         df_clean = df_clean.withColumn(col_name, trim(col(col_name)))
+    
+    logger.info("[OK] Whitespace trimmed")
     
     return df_clean
 
@@ -424,21 +415,23 @@ def enrich_maintenance_with_operators(
     """
     Enrich maintenance events with operator details.
     
-    Features added:
-    - Operator skill level and certifications
-    - Operator reliability score
-    - Operator team assignment
-    - Data quality flag if operator not found
-    
-    Note: Uses LEFT JOIN to preserve all maintenance events
-    even if technician not in roster (external contractors).
+    Uses LEFT JOIN to preserve all maintenance events.
+    Drops duplicate columns from operators table.
     
     Returns:
         Enriched DataFrame
     """
+    # Drop columns from operators that don't add value
+    df_ops_clean = df_operators.select(
+        col('operator_id'),
+        col('skill_level'),
+        col('reliability_score')
+    )
+    
+    # Join on technician_id = operator_id
     df_enriched = df_maintenance.join(
-        df_operators,
-        df_maintenance.technician_id == df_operators.operator_id,
+        df_ops_clean,
+        df_maintenance.technician_id == df_ops_clean.operator_id,
         'left'
     )
     
@@ -454,10 +447,13 @@ def enrich_maintenance_with_operators(
         coalesce(col('skill_level'), lit('Unknown'))
     ).withColumn(
         'operator_reliability',
-        coalesce(col('reliability_score'), lit(50.0))  # Default: medium reliability
+        coalesce(col('reliability_score'), lit(50.0))
     )
     
-    logger.info("✓ Maintenance events enriched with operator data")
+    # Drop the temporary columns (skill_level, reliability_score, operator_id)
+    df_enriched = df_enriched.drop('skill_level', 'reliability_score', 'operator_id')
+    
+    logger.info("[OK] Maintenance events enriched with operator data")
     
     return df_enriched
 
@@ -465,7 +461,6 @@ def enrich_maintenance_with_operators(
 def create_fact_maintenance(df: DataFrame) -> DataFrame:
     """
     Create analytics-ready fact table for maintenance events.
-    
     Dimensions:
     - When: start_time_utc, end_time_utc, date_key
     - Where: factory_id, line_id
@@ -500,20 +495,20 @@ def create_fact_maintenance(df: DataFrame) -> DataFrame:
         
         # Facts
         col('downtime_min'),
-        col('cost_eur').alias('cost_eur'),
+        col('cost_eur'),
         when(
             col('downtime_min') > 0,
             (col('cost_eur') / col('downtime_min')).cast('decimal(10,2)')
-        ).otherwise(0).alias('cost_per_downtime_min'),
+        ).otherwise(lit(0)).alias('cost_per_downtime_min'),
         
         # Severity Classification
         when(
             (col('cost_eur') > 2500) | (col('downtime_min') > 120),
-            'High'
+            lit('High')
         ).when(
             (col('cost_eur') > 1500) | (col('downtime_min') > 60),
-            'Medium'
-        ).otherwise('Low').alias('severity_level'),
+            lit('Medium')
+        ).otherwise(lit('Low')).alias('severity_level'),
         
         # Resources
         col('technician_id'),
@@ -526,7 +521,7 @@ def create_fact_maintenance(df: DataFrame) -> DataFrame:
         col('next_due_date'),
         datediff(
             col('next_due_date'),
-            col('event_date')
+            date_format(col('start_time_utc'), 'yyyy-MM-dd')
         ).alias('days_to_next_due'),
         
         # Quality Flags
@@ -537,7 +532,7 @@ def create_fact_maintenance(df: DataFrame) -> DataFrame:
         lit(datetime.now()).alias('load_timestamp')
     )
     
-    logger.info("✓ Fact table created with all dimensions and facts")
+    logger.info("[OK] Fact table created with all dimensions and facts")
     
     return fact_table
 
@@ -561,7 +556,7 @@ def create_maintenance_summary(df: DataFrame) -> DataFrame:
         col('maintenance_type'),
         col('event_date')
     ).agg(
-        count('*').alias('event_count'),
+        count(lit(1)).alias('event_count'),
         spark_sum('downtime_min').alias('total_downtime_min'),
         avg('downtime_min').alias('avg_downtime_min'),
         spark_sum('cost_eur').alias('total_cost_eur'),
@@ -574,7 +569,7 @@ def create_maintenance_summary(df: DataFrame) -> DataFrame:
         (col('unplanned_count') / col('event_count') * 100).cast('decimal(5,2)')
     )
     
-    logger.info("✓ Maintenance summary aggregations created")
+    logger.info("[OK] Maintenance summary aggregations created")
     
     return summary
 
@@ -590,39 +585,150 @@ def export_dataframe(
     mode: str = 'overwrite'
 ) -> None:
     """
-    Export DataFrame to storage.
+    Export DataFrame to storage with proper complex type serialization for CSV.
     
     Supported formats:
     - 'parquet': Columnar, compressed, schema-preserving (recommended)
-    - 'csv': Text format, universal compatibility
+    - 'csv': Text format, universal compatibility (with JSON serialization)
+    
+    Critical: Complex columns (Array, Map, Struct, Timestamp) are converted to
+    JSON/string format for CSV to prevent data corruption.
     
     Args:
         df: DataFrame to export
-        output_path: Output file/directory path
+        output_path: Output file path
         format_type: 'parquet' or 'csv'
         mode: 'overwrite', 'append', 'ignore', 'error'
     """
+    from pyspark.sql.types import ArrayType, MapType, StructType, TimestampType
+    from pyspark.sql.functions import to_json, col, date_format
+    
+    # ========================================================================
+    # CRITICAL: Prepare DataFrame for CSV export
+    # ========================================================================
+    def prepare_for_csv(df_to_prep: DataFrame) -> DataFrame:
+        """
+        Convert complex data types to CSV-safe string representations.
+        
+        Conversions:
+        1. ArrayType (e.g., parts_list) → JSON array string
+           Example: ["PART-001", "PART-002"] → '["PART-001","PART-002"]'
+           
+        2. MapType → JSON object string
+           Example: {key1: val1} → '{"key1":"val1"}'
+           
+        3. StructType → JSON object string
+           Example: {a: 1, b: 2} → '{"a":1,"b":2}'
+           
+        4. TimestampType (load_timestamp) → ISO format string
+           Example: 2025-01-18T15:30:45.123 → '2025-01-18 15:30:45'
+        """
+        
+        # Step 1: Convert Array, Map, and Struct columns to JSON strings
+        # These columns will be scrambled in CSV unless converted
+        complex_cols = [
+            f.name for f in df_to_prep.schema.fields 
+            if isinstance(f.dataType, (ArrayType, MapType, StructType))
+        ]
+        
+        logger.info(f"[INFO] Converting {len(complex_cols)} complex columns to JSON for CSV")
+        logger.info(f"       Complex columns: {complex_cols}")
+        
+        for col_name in complex_cols:
+            # to_json() converts arrays/maps/structs to JSON string representation
+            # This preserves the data structure in a readable format
+            df_to_prep = df_to_prep.withColumn(col_name, to_json(col(col_name)))
+            logger.info(f"       ✓ {col_name}: converted to JSON string")
+        
+        # Step 2: Convert Timestamp columns to ISO format strings
+        # Timestamp objects don't serialize well to CSV
+        timestamp_cols = [
+            f.name for f in df_to_prep.schema.fields 
+            if isinstance(f.dataType, TimestampType)
+        ]
+        
+        logger.info(f"[INFO] Converting {len(timestamp_cols)} timestamp columns to strings")
+        
+        for col_name in timestamp_cols:
+            # date_format() converts timestamp to human-readable string
+            # Format: 'yyyy-MM-dd HH:mm:ss' is readable and sortable
+            df_to_prep = df_to_prep.withColumn(
+                col_name, 
+                date_format(col(col_name), 'yyyy-MM-dd HH:mm:ss')
+            )
+            logger.info(f"       ✓ {col_name}: converted to ISO format string")
+        
+        logger.info("[OK] DataFrame prepared for CSV export")
+        return df_to_prep
+    
+    # ========================================================================
+    # EXPORT LOGIC
+    # ========================================================================
     try:
         if format_type.lower() == 'parquet':
-            df.coalesce(1).write \
-                .mode(mode) \
-                .format('parquet') \
-                .save(output_path)
-            logger.info(f"✓ Exported to Parquet: {output_path}")
+            try:
+                # Try Parquet first (preferred format)
+                logger.info(f"[INFO] Attempting Parquet export: {output_path}")
+                
+                df.coalesce(1).write \
+                    .mode(mode) \
+                    .format('parquet') \
+                    .save(output_path)
+                
+                logger.info(f"[OK] Exported to Parquet: {output_path}")
+                return
+            
+            except Exception as parquet_error:
+                # Parquet failed (likely Hadoop issue on Windows)
+                parquet_error_msg = str(parquet_error)
+                
+                if 'HADOOP_HOME' in parquet_error_msg or 'winutils' in parquet_error_msg:
+                    logger.warning(f"[WARNING] Parquet export failed (Hadoop not available)")
+                    logger.warning(f"[INFO] Falling back to CSV format")
+                    
+                    # Convert to CSV-safe format
+                    fallback_path = output_path.replace('.parquet', '.csv')
+                    csv_ready_df = prepare_for_csv(df)
+                    
+                    # Write CSV with header
+                    csv_ready_df.coalesce(1).write \
+                        .mode(mode) \
+                        .format('csv') \
+                        .option('header', 'true') \
+                        .option('quote', '"') \
+                        .option('escape', '"') \
+                        .option('quoteAll', 'true') \
+                        .save(fallback_path)
+                    
+                    logger.info(f"[OK] Exported to CSV (fallback): {fallback_path}")
+                    return
+                else:
+                    # Some other error - re-raise
+                    raise
         
         elif format_type.lower() == 'csv':
-            df.coalesce(1).write \
+            logger.info(f"[INFO] Exporting to CSV: {output_path}")
+            
+            # Prepare the DataFrame for CSV (convert complex types)
+            csv_ready_df = prepare_for_csv(df)
+            
+            # Write CSV with header
+            csv_ready_df.coalesce(1).write \
                 .mode(mode) \
-                .option('header', 'true') \
                 .format('csv') \
+                .option('header', 'true') \
+                .option('quote', '"') \
+                .option('escape', '"') \
+                .option('quoteAll', 'true') \
                 .save(output_path)
-            logger.info(f"✓ Exported to CSV: {output_path}")
+            
+            logger.info(f"[OK] Exported to CSV: {output_path}")
         
         else:
             raise ValueError(f"Unsupported format: {format_type}")
     
     except Exception as e:
-        logger.error(f"Failed to export {output_path}: {str(e)}")
+        logger.error(f"[ERROR] Failed to export {output_path}: {str(e)}")
         raise
 
 
@@ -725,7 +831,7 @@ def run_etl_pipeline(
         # Create summary metrics
         summary_maintenance = create_maintenance_summary(fact_maintenance)
         
-        logger.info(f"✓ Transformed {report['row_counts']['fact_maintenance']} "
+        logger.info(f"[OK] Transformed {report['row_counts']['fact_maintenance']} "
                    f"maintenance events")
         
         # ========== EXPORT ==========
@@ -761,7 +867,7 @@ def run_etl_pipeline(
             format_type='csv'
         )
         
-        logger.info(f"✓ All outputs exported to {output_dir}")
+        logger.info(f"[OK] All outputs exported to {output_dir}")
         
         # ========== COMPLETION ==========
         end_time = datetime.now()

@@ -1,0 +1,19 @@
+# Database Connection Settings
+database:
+  host: localhost
+  port: 5432
+  name: manufacturing
+  user: ${DB_USER}  # From environment variable
+  password: ${DB_PASSWORD} # Your password
+  
+# Connection Pool
+connection_pool:
+  min_size: 5
+  max_size: 20
+  timeout: 30
+
+# Backup Settings
+backup:
+  enabled: true
+  location: ./backups
+  frequency: daily

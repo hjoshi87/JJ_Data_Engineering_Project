@@ -8,7 +8,7 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-set VIRTUAL_ENV=C:\Users\heram\OneDrive\Documents\Johnson & Johnson Case Study\Solution\jjvenv
+set VIRTUAL_ENV=C:\Users\heram\OneDrive\Documents\JJ_Case_Study\Solution\jjvenv
 
 if not defined PROMPT set PROMPT=$P$G
 
