@@ -163,56 +163,68 @@ Quality Metrics:
 
 ## Test Coverage:
 ✓ test_1_validate_valid              - Correct data passes
+
 ✓ test_2_validate_null               - NULL detection
+
 ✓ test_3_clean_timestamps            - Timestamp conversion
+
 ✓ test_4_clean_parts                 - Array parsing
+
 ✓ test_5_enrich_preserves            - Data preservation
+
 ✓ test_6_fact_table                  - Output creation
+
 ✓ test_7_zero_downtime               - Edge case handling
+
 ✓ test_8_missing_data                - Edge case handling
 
 
 ## Edge Cases Handled
 
-Zero Downtime Events - Maintenance inspections with no downtime
-Missing Technician Data - Technicians not in roster (preserved as NULL)
-Missing Cost Data - Cost values not available (handled explicitly)
-Timestamp Anomalies - Converted to UTC for consistency
-Duplicate Events - Validated (none found in data)
+1. Zero Downtime Events - Maintenance inspections with no downtime
+2. Missing Technician Data - Technicians not in roster (preserved as NULL)
+3. Missing Cost Data - Cost values not available (handled explicitly)
+4. Timestamp Anomalies - Converted to UTC for consistency
+5. Duplicate Events - Validated (none found in data)
 
 See: `docs/EDGE_CASES.md` for details
 
 ## Key Features
 ✅ Data Validation - 100% of input data validated before processing
+
 ✅ Edge Case Handling - Zero downtime, missing data, unmatched technicians
+
 ✅ Multiple Outputs - Both Parquet (compressed) and CSV (universal)
+
 ✅ Comprehensive Tests - 8 unit tests with 100% pass rate
+
 ✅ Production-Ready - Logging, error handling, modular design
+
 ✅ SQL Analysis - 5 queries answering key business questions
 
 ## Technologies
 
-ETL Engine - Apache Spark / PySpark
-Language - Python 3.11+
-Testing - pytest
-Database - PostgreSQL
-Output Formats - CSV, Parquet
+- ETL Engine - Apache Spark / PySpark
+- Language - Python 3.11+
+- Testing - pytest
+- Database - PostgreSQL
+- Output Formats - CSV, Parquet
 
 ## Documentation
 
-PIPELINE_DESIGN.md - Architecture, phases, and design decisions
-DATA_QUALITY_STRATEGY.md - Data cleaning approach and quality metrics
-QUERIES.md - SQL analysis queries with results
-ASSUMPTIONS.md - Project assumptions and risks
-TESTING_STRATEGY.md - Test coverage and production extensions
-EDGE_CASES.md - Edge cases handled by pipeline
+- PIPELINE_DESIGN.md - Architecture, phases, and design decisions
+- DATA_QUALITY_STRATEGY.md - Data cleaning approach and quality metrics
+- QUERIES.md - SQL analysis queries with results
+- ASSUMPTIONS.md - Project assumptions and risks
+- TESTING_STRATEGY.md - Test coverage and production extensions
+- EDGE_CASES.md - Edge cases handled by pipeline
 
 ## Performance
 
-Pipeline Execution: ~2 minutes end-to-end
-Data Size: 94 events → ~1 MB memory
-Test Suite: 84 seconds (includes Spark overhead)
-Scalability: Design scales to 100x+ volume
+1. Pipeline Execution: ~2 minutes end-to-end
+2. Data Size: 94 events → ~1 MB memory
+3. Test Suite: 84 seconds (includes Spark overhead)
+4. Scalability: Design scales to 100x+ volume
 
 ## Author
 Heramb Joshi
