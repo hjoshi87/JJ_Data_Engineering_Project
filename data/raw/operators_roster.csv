@@ -1,0 +1,21 @@
+operator_id,name,factory_id,primary_line,primary_shift,skill_level,certifications,team,hire_date,overtime_eligible,hourly_rate_eur,reliability_score
+OP-001,Alex Schmidt,FRA-PLANT-01,Line-C,Shift-2,Junior,SixSigma-Yellow,Bravo,2021-05-14,True,18.2,84.2
+OP-002,Sam Müller,FRA-PLANT-01,Line-C,Shift-2,Senior,"IPC-A-610,Lockout/Tagout",Delta,2021-04-18,True,36.88,92.1
+OP-003,Taylor Keller,FRA-PLANT-01,Line-C,Shift-3,Intermediate,"ISO9001,CE-Machinery,Lean-Basics",Bravo,2023-04-23,True,27.76,89.0
+OP-004,Jordan Weber,FRA-PLANT-01,Line-A,Shift-1,Senior,"SixSigma-Green,IPC-A-610,CE-Machinery",Alpha,2023-07-10,True,40.6,91.6
+OP-005,Casey Fischer,FRA-PLANT-01,Line-B,Shift-1,Intermediate,Lean-Basics,Bravo,2024-06-11,True,31.68,84.0
+OP-006,Riley Beck,FRA-PLANT-01,Line-B,Shift-3,Senior,ISO9001,Sigma,2021-12-27,True,31.35,80.5
+OP-007,Morgan Wagner,FRA-PLANT-01,Line-A,Shift-1,Intermediate,IPC-A-610,Alpha,2021-07-09,True,38.3,84.1
+OP-008,Jamie Hofmann,FRA-PLANT-01,Line-C,Shift-3,Intermediate,SixSigma-Yellow,Sigma,2022-09-30,True,32.32,97.2
+OP-009,Avery Richter,FRA-PLANT-01,Line-C,Shift-2,Intermediate,"CE-Machinery,ISO9001,Lockout/Tagout",Sigma,2023-08-04,False,40.62,77.9
+OP-010,Quinn König,FRA-PLANT-01,Line-A,Shift-2,Junior,Lockout/Tagout,Delta,2024-07-04,False,36.98,75.4
+OP-011,Kai Wolf,FRA-PLANT-01,Line-A,Shift-1,Expert,"Lean-Basics,CE-Machinery",Alpha,2024-11-28,True,21.03,82.5
+OP-012,Cameron Neumann,FRA-PLANT-01,Line-C,Shift-1,Expert,"ISO9001,SixSigma-Green",Delta,2021-04-10,True,18.72,80.3
+OP-013,Drew Braun,FRA-PLANT-01,Line-C,Shift-2,Intermediate,"Lockout/Tagout,IPC-A-610,SixSigma-Yellow",Bravo,2024-04-21,False,39.68,88.1
+OP-014,Hayden Krüger,FRA-PLANT-01,Line-A,Shift-2,Senior,"ISO9001,SixSigma-Yellow",Sigma,2024-03-11,False,19.89,79.8
+OP-015,Rowan Werner,FRA-PLANT-01,Line-C,Shift-2,Junior,"SixSigma-Green,ISO9001",Sigma,2024-03-04,True,34.41,88.8
+OP-016,Reese Lange,FRA-PLANT-01,Line-B,Shift-1,Senior,"Lockout/Tagout,SixSigma-Green,IPC-A-610",Bravo,2021-06-30,True,20.97,97.1
+OP-017,Skyler Zimmermann,FRA-PLANT-01,Line-B,Shift-1,Intermediate,IPC-A-610,Sigma,2023-09-04,False,40.95,91.8
+OP-018,Phoenix Hartmann,FRA-PLANT-01,Line-B,Shift-3,Intermediate,"IPC-A-610,Lean-Basics,CE-Machinery",Delta,2021-12-10,True,40.81,95.1
+OP-019,Sage Schneider,FRA-PLANT-01,Line-B,Shift-1,Expert,IPC-A-610,Alpha,2021-03-06,True,34.21,77.4
+OP-020,Emerson Koch,FRA-PLANT-01,Line-A,Shift-2,Intermediate,"SixSigma-Yellow,IPC-A-610",Bravo,2020-07-28,True,37.2,78.0
