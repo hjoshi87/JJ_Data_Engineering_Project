@@ -162,21 +162,21 @@ Quality Metrics:
 - 8/8 tests passing (100%)
 
 ## Test Coverage:
-✓ test_1_validate_valid              - Correct data passes
+- test_1_validate_valid              - Correct data passes
 
-✓ test_2_validate_null               - NULL detection
+- test_2_validate_null               - NULL detection
 
-✓ test_3_clean_timestamps            - Timestamp conversion
+- test_3_clean_timestamps            - Timestamp conversion
 
-✓ test_4_clean_parts                 - Array parsing
+- test_4_clean_parts                 - Array parsing
 
-✓ test_5_enrich_preserves            - Data preservation
+- test_5_enrich_preserves            - Data preservation
 
-✓ test_6_fact_table                  - Output creation
+- test_6_fact_table                  - Output creation
 
-✓ test_7_zero_downtime               - Edge case handling
+- test_7_zero_downtime               - Edge case handling
 
-✓ test_8_missing_data                - Edge case handling
+- test_8_missing_data                - Edge case handling
 
 
 ## Edge Cases Handled
@@ -190,17 +190,17 @@ Quality Metrics:
 See: `docs/EDGE_CASES.md` for details
 
 ## Key Features
-✅ Data Validation - 100% of input data validated before processing
+- Data Validation - 100% of input data validated before processing
 
-✅ Edge Case Handling - Zero downtime, missing data, unmatched technicians
+- Edge Case Handling - Zero downtime, missing data, unmatched technicians
 
-✅ Multiple Outputs - Both Parquet (compressed) and CSV (universal)
+- Multiple Outputs - Both Parquet (compressed) and CSV (universal)
 
-✅ Comprehensive Tests - 8 unit tests with 100% pass rate
+- Comprehensive Tests - 8 unit tests with 100% pass rate
 
-✅ Production-Ready - Logging, error handling, modular design
+- Production-Ready - Logging, error handling, modular design
 
-✅ SQL Analysis - 5 queries answering key business questions
+- SQL Analysis - 5 queries answering key business questions
 
 ## Technologies
 
